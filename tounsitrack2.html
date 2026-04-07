@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TounsiTrack LITE</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;600&display=swap');
+:root{--bg:#0a0a0a;--sf:#141414;--s2:#1c1c1c;--bd:#2a2a2a;--ac:#e8ff47;--ac2:#ff4757;--tx:#f0f0f0;--mt:#666;--rd:12px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--tx);font-family:'DM Sans',sans-serif;min-height:100vh;overflow-x:hidden}
+nav{position:fixed;bottom:0;left:0;right:0;background:var(--sf);border-top:1px solid var(--bd);display:flex;z-index:100;padding-bottom:env(safe-area-inset-bottom)}
+.nb{flex:1;padding:14px 8px 10px;background:none;border:none;color:var(--mt);font-family:inherit;font-size:11px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px}
+.nb.on{color:var(--ac)} .nb svg{width:22px;height:22px}
+#app{padding:20px 16px 90px;max-width:500px;margin:0 auto}
+.hdr{padding:30px 0 20px} .ht{font-family:'Bebas Neue',sans-serif;font-size:42px;letter-spacing:2px;line-height:1} .ht span{color:var(--ac)} .hs{color:var(--mt);font-size:13px;margin-top:4px}
+.crd{background:var(--sf);border:1px solid var(--bd);border-radius:var(--rd);padding:16px;margin-bottom:12px}
+.btn{background:var(--ac);color:#000;border:none;border-radius:8px;padding:12px 20px;font-family:inherit;font-weight:600;font-size:14px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;width:100%}
+.btn:active{transform:scale(.97)} .btn.gh{background:none;color:var(--tx);border:1px solid var(--bd)} .btn.dn{background:var(--ac2);color:#fff} .btn.sm{padding:7px 12px;font-size:12px;width:auto}
+input,select{background:var(--s2);border:1px solid var(--bd);border-radius:8px;color:var(--tx);font-family:inherit;font-size:14px;padding:10px 12px;width:100%;margin-bottom:12px;outline:none}
+input:focus,select:focus{border-color:var(--ac)}
+label{font-size:12px;color:var(--mt);margin-bottom:5px;display:block}
+.bdg{background:var(--s2);border:1px solid var(--bd);border-radius:6px;padding:3px 8px;font-size:11px;color:var(--mt);display:inline-block}
+.bdg.ac{background:rgba(232,255,71,.12);border-color:rgba(232,255,71,.3);color:var(--ac)}
+.flx{display:flex;justify-content:space-between;align-items:center}
+.tg{display:inline-block;padding:2px 8px;background:rgba(232,255,71,.1);border:1px solid rgba(232,255,71,.2);border-radius:99px;font-size:11px;color:var(--ac);margin-right:4px}
+.emp{text-align:center;padding:40px 20px;color:var(--mt);font-size:14px}
+.mod{position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:200;display:none;align-items:flex-end;backdrop-filter:blur(4px)}
+.mod.on{display:flex}
+.mc{background:var(--sf);border:1px solid var(--bd);border-radius:20px 20px 0 0;padding:24px 20px 40px;width:100%;max-width:500px;margin:0 auto;max-height:85vh;overflow-y:auto;animation:su .2s ease}
+@keyframes su{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+</style>
+</head>
+<body>
+
+<div id="app"></div>
+<nav id="nav"></nav>
+
+<div id="modal" class="mod"><div class="mc" id="modalC"></div></div>
+
+<script>
+// --- CORE SYSTEM ---
+const $ = s => document.querySelector(s), $$ = s => document.querySelectorAll(s);
+let db = JSON.parse(localStorage.getItem('tt_db')) || { p: [], s: [], pr: {} };
+const save = () => localStorage.setItem('tt_db', JSON.stringify(db));
+
+let state = { view: 'p', exos: [], act: null };
+
+// --- ICONS ---
+const ic = {
+  p: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>',
+  s: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
+  h: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10"/><polyline points="12 6 12 12"/><path d="M16 10h4V6"/></svg>',
+  st: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>'
+};
+
+// --- RENDER ENGINE ---
+const render = () => {
+  const v = views[state.view]();
+  $('#app').innerHTML = `<div class="hdr"><div class="ht">${v.t}</div><div class="hs">${v.s}</div></div>${v.c}`;
+  $('#nav').innerHTML = [
+    {id:'p',n:'Programmes'},{id:'s',n:'Séance'},{id:'h',n:'Historique'},{id:'st',n:'Stats'}
+  ].map(i => `<button class="nb ${state.view===i.id?'on':''}" onclick="go('${i.id}')">${ic[i.id]}${i.n}</button>`).join('');
+};
+
+const go = v => { state.view = v; render(); };
+const oM = html => { $('#modalC').innerHTML = html; $('#modal').classList.add('on'); };
+const cM = () => { $('#modal').classList.remove('on'); $('#modalC').innerHTML=''; };
+
+// --- VIEWS ---
+const views = {
+  // PROGRAMMES
+  p: () => ({
+    t:'TOUNSI<span>TRACK</span>', s:'Tes programmes & séances',
+    c: `<button class="btn" onclick="newP()">+ Nouveau programme</button>
+        <div style="margin-top:16px">
+          ${db.p.length ? db.p.map(p => `
+            <div class="crd flx">
+              <div><div style="font-weight:600">${p.n}</div><div class="hs">${p.d} · ${p.e.length} exos</div></div>
+              <div style="display:flex;gap:5px">
+                <button class="btn sm" onclick
